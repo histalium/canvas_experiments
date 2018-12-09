@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Regular polygon</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    #c {
+      background-color: black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script>
+    (function() {
+      const numberOfVertices = 7;
+      const radius = 300;
+      const fullCircle = 2 * Math.PI;
+
+      const canvas = document.getElementById('c');
+      const context = canvas.getContext('2d');
+
+      canvas.width = radius * 2;
+      canvas.height = radius * 2;
+
+      const points = range(numberOfVertices)
+        .map(v => {
+          return {
+            x: Math.sin(fullCircle / numberOfVertices * v) * radius + radius,
+            y: Math.cos(fullCircle / numberOfVertices * v) * radius + radius,
+          }
+        });
+      
+      const drawPath = drawPathOnContext(context);
+
+      context.strokeStyle = 'green';
+      drawPath(points);
+      context.stroke();
+    })();
+
+    function drawPathOnContext(context) {
+      return points => {
+        context.beginPath();
+        context.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i ++) {
+          context.lineTo(points[i].x, points[i].y);
+        }
+        context.closePath();
+      }
+    }
+
+    function range(count) {
+      return Array.from(Array(count).keys());
+    }
+  </script>
+</body>
+</html>
