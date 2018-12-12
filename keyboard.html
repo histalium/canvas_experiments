@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Keyboard</title>
+</head>
+<body>
+  <div><span id="keyA">A</span><span id="keyB">B</span><span id="keyC">C</span><span id="keyW">W</span></div>
+  <script> 
+    const keyElements = {};
+    const keyStatus = {};
+
+    keyElements.KeyA = document.getElementById('keyA');
+    keyElements.KeyB = document.getElementById('keyB');
+    keyElements.KeyC = document.getElementById('keyC');
+    keyElements.KeyW = document.getElementById('keyW');
+
+    document.addEventListener('keydown', ev => {
+      keyStatus[ev.code] = true;
+      showStatusKeys();
+    });
+    document.addEventListener('keyup', ev => {
+      keyStatus[ev.code] = false;
+      showStatusKeys();
+    });
+
+    function showStatusKeys() {
+      for (let element in keyElements) {
+        if (keyStatus[element]) {
+          keyElements[element].style.color = 'red';
+        } else {
+          keyElements[element].style.color = 'black';
+        }
+      }
+    }
+  </script>
+</body>
+</html>
