@@ -16,11 +16,31 @@
   <script src="gl-matrix-min.js"></script>
   <script>
     const mat4 = glMatrix.mat4;
+    const vec3 = glMatrix.vec3;
     
     (function() {
       const canvas = document.getElementById('c');
       canvas.width = 1024;
       canvas.height = 768;
+
+      canvas.addEventListener('click', () => {
+        canvas.requestPointerLock();
+      });
+
+      document.addEventListener('pointerlockchange', lockChangeAlert, false);
+      function lockChangeAlert() {
+        if (document.pointerLockElement === canvas) {
+          document.addEventListener("mousemove", updatePosition, false);
+        } else {
+          document.removeEventListener("mousemove", updatePosition, false);
+        }
+      }
+
+      let turn = 0;
+
+      function updatePosition(e) {
+        turn -= e.movementX;
+      }
 
       const gl = canvas.getContext('webgl');
 
@@ -76,36 +96,53 @@
         keyStatus[ev.code] = false;
       });
 
-      const cameraLocation = {
-        x: 0,
-        y: 0,
-        z: 0
-      };
+      // const cameraLocation = {
+      //   x: 0,
+      //   y: 0,
+      //   z: -6
+      // };
+
+      const cameraLocation = vec3.create();
+      vec3.add(cameraLocation, cameraLocation, vec3.fromValues(0, 0, -6));
 
       const buffers = initBuffers(gl);
 
+      const forward = vec3.fromValues(0, 0, 0.3);
+      const backward = vec3.fromValues(0, 0, -0.3);
+      const right = vec3.fromValues(0.3, 0, 0);
+      const left = vec3.fromValues(-0.3, 0, 0);
 
       const draw = () => {
         if (keyStatus.KeyW) {
-          cameraLocation.z += 0.3;
+          const direction = rotateVec3(forward, Math.PI / 500 * turn)
+          vec3.add(cameraLocation, cameraLocation, direction);
         }
         if (keyStatus.KeyS) {
-          cameraLocation.z -= 0.3;
+          const direction = rotateVec3(backward, Math.PI / 500 * turn)
+          vec3.add(cameraLocation, cameraLocation, direction);
         }
         if (keyStatus.KeyA) {
-          cameraLocation.x += 0.3;
+          const direction = rotateVec3(right, Math.PI / 500 * turn)
+          vec3.add(cameraLocation, cameraLocation, direction);
         }
         if (keyStatus.KeyD) {
-          cameraLocation.x -= 0.3;
+          const direction = rotateVec3(left, Math.PI / 500 * turn)
+          vec3.add(cameraLocation, cameraLocation, direction);
         }
         
-        drawScene(gl, programInfo, buffers, cameraLocation);
+        drawScene(gl, programInfo, buffers, cameraLocation, turn);
         requestAnimationFrame(draw)
       }
       
       draw();
 
     })();
+
+    function rotateVec3(vec, rotation) {
+      var direction = vec3.create();
+      vec3.rotateY(direction, vec, vec3.create(), rotation);
+      return direction;
+    }
 
     function initBuffers(gl) {
       const positions = [
@@ -167,15 +204,23 @@
       };
     }
 
-    function drawScene(gl, programInfo, buffers, cameraLocation) {
+    function drawScene(gl, programInfo, buffers, cameraLocation, turn) {
       clear(gl);
 
       const projectionMatrix = getProjectionMatrix(gl.canvas);
-      mat4.translate(projectionMatrix, projectionMatrix, [cameraLocation.x, cameraLocation.y, cameraLocation.z]);
       
-      const modelViewMatrix = mat4.create();
+      const viewMatrix = mat4.create();
+      const up = vec3.fromValues(0, 1, 0);
+      const targetVector = vec3.create();
+      vec3.add(targetVector, cameraLocation, vec3.fromValues(0, 0, 1))
+      vec3.rotateY(targetVector, targetVector, cameraLocation, Math.PI / 500 * turn);
+      mat4.lookAt(viewMatrix, cameraLocation, targetVector, up);
 
-      mat4.translate(modelViewMatrix, modelViewMatrix, [-0.0, 0.0, -6.0]);
+      const modelViewMatrix = mat4.create();
+      mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, 0.0]);
+
+      const mvpMatrix = mat4.create();
+      mat4.mul(mvpMatrix, projectionMatrix, viewMatrix);
 
       loadModelBuffer(gl, buffers, programInfo);
       loadColorBuffer(gl, buffers, programInfo);
@@ -187,7 +232,7 @@
       gl.uniformMatrix4fv(
           programInfo.uniformLocations.projectionMatrix,
           false,
-          projectionMatrix);
+          mvpMatrix);
       gl.uniformMatrix4fv(
           programInfo.uniformLocations.modelViewMatrix,
           false,
