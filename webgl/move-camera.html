@@ -18,94 +18,162 @@
     const mat4 = glMatrix.mat4;
     const vec3 = glMatrix.vec3;
     
+    class Keys {
+      constructor() {
+        const keyStatus = {};
+        document.addEventListener('keydown', ev => {
+          keyStatus[ev.code] = true;
+        });
+        document.addEventListener('keyup', ev => {
+          keyStatus[ev.code] = false;
+        });
+
+        this._keyStatus = keyStatus;
+      }
+
+      getState() {
+        return Object.assign({}, this._keyStatus);
+      }
+    }
+
+    class Mouse {
+      constructor(canvas) {
+        this._rotaion = 0.0;
+        
+        canvas.addEventListener('click', () => {
+          canvas.requestPointerLock();
+        });
+
+        const updatePosition = e => {
+          this._rotaion -= e.movementX;
+        }
+
+        document.addEventListener('pointerlockchange', () => {
+          if (document.pointerLockElement === canvas) {
+            document.addEventListener("mousemove", updatePosition, false);
+          } else {
+            document.removeEventListener("mousemove", updatePosition, false);
+          }
+        }, false);
+      }
+
+      getRotation() {
+        return this._rotaion;
+      }
+    }
+
+    class Camera {
+      constructor() {
+        this._location = vec3.create();
+        this._rotation = 0;
+      }
+
+      getViewMatrix() {
+        const viewMatrix = mat4.create();
+        const up = vec3.fromValues(0, 1, 0);
+        const targetVector = vec3.create();
+        vec3.add(targetVector, this._location, vec3.fromValues(0, 0, 1))
+        vec3.rotateY(targetVector, targetVector, this._location, Math.PI / 500 * this._rotation);
+        mat4.lookAt(viewMatrix, this._location, targetVector, up);
+
+        return viewMatrix;
+      }
+
+      move (direction) {
+          const d = rotateVec3(direction, Math.PI / 500 * this._rotation);
+          const location = this._location;
+          vec3.add(location, location, d);
+      }
+
+      changeDirection (rotation) {
+        this._rotation = rotation;
+      }
+    }
+
+    class ModelBase {
+      constructor(gl, buffers, programInfo) {
+        this._gl = gl;
+        this._buffers = buffers;
+        this._programInfo = programInfo;
+      }
+
+      draw(modelMatrix, vpMatrix) {
+        const gl = this._gl;
+        const buffers = this._buffers;
+        const programInfo = this._programInfo;
+
+        gl.useProgram(programInfo.program);
+        loadModelBuffer(gl, buffers, programInfo);
+        loadColorBuffer(gl, buffers, programInfo);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+
+        gl.uniformMatrix4fv(
+            programInfo.uniformLocations.projectionMatrix,
+            false,
+            vpMatrix);
+        gl.uniformMatrix4fv(
+            programInfo.uniformLocations.modelViewMatrix,
+            false,
+            modelMatrix);
+
+        {
+          const vertexCount = 12;
+          const type = gl.UNSIGNED_SHORT;
+          const offset = 0;
+          gl.drawElements(gl.TRIANGLES, buffers.vertexCount, type, offset);
+        }
+      }
+    }
+
+    class Model {
+      constructor (modelBase) {
+        this._modelBase = modelBase;
+        this._location = vec3.create();
+        this._rotation = 0;
+      }
+
+      setLocation(location) {
+        this._location = location;
+      }
+
+      setRotation(rotation) {
+        this._rotation = rotation;
+      }
+
+      draw(vpMatrix) {
+        const modelMatrix = mat4.create();
+        mat4.translate(modelMatrix, modelMatrix, this._location);
+        mat4.rotate(modelMatrix, modelMatrix, this._rotation, vec3.fromValues(0, 1, 0));
+        this._modelBase.draw(modelMatrix, vpMatrix);
+      }
+    }
+
     (function() {
       const canvas = document.getElementById('c');
       canvas.width = 1024;
       canvas.height = 768;
 
-      canvas.addEventListener('click', () => {
-        canvas.requestPointerLock();
-      });
-
-      document.addEventListener('pointerlockchange', lockChangeAlert, false);
-      function lockChangeAlert() {
-        if (document.pointerLockElement === canvas) {
-          document.addEventListener("mousemove", updatePosition, false);
-        } else {
-          document.removeEventListener("mousemove", updatePosition, false);
-        }
-      }
-
-      let turn = 0;
-
-      function updatePosition(e) {
-        turn -= e.movementX;
-      }
-
       const gl = canvas.getContext('webgl');
-
 
       if (!gl) {
         console.error('no web gl');
         return;
       }
 
-      gl.clearColor(0.0, 0.0, 0.0, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-
-      const vsSource = `
-        attribute vec4 aVertexPosition;
-        attribute vec4 aVertexColor;
-
-        uniform mat4 uModelViewMatrix;
-        uniform mat4 uProjectionMatrix;
-
-        varying lowp vec4 vColor;
-
-        void main() {
-          gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-          vColor = aVertexColor;
-        }`;
-
-      const fsSource = `
-        varying lowp vec4 vColor;
-
-        void main() {
-          gl_FragColor = vColor;
-        }`;
-
-      const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
-
-      const programInfo = {
-        program: shaderProgram,
-        attribLocations: {
-          vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-          vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
-        },
-        uniformLocations: {
-          projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-          modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
-        },
-      };
-      
-      const keyStatus = {};
-      document.addEventListener('keydown', ev => {
-        keyStatus[ev.code] = true;
-      });
-      document.addEventListener('keyup', ev => {
-        keyStatus[ev.code] = false;
-      });
-
-      // const cameraLocation = {
-      //   x: 0,
-      //   y: 0,
-      //   z: -6
-      // };
-
-      const cameraLocation = vec3.create();
-      vec3.add(cameraLocation, cameraLocation, vec3.fromValues(0, 0, -6));
-
+      const programInfo = createProgramInfo(gl)
       const buffers = initBuffers(gl);
+      
+      const pyramidBase = new ModelBase(gl, buffers, programInfo);
+      pyramid = new Model(pyramidBase);
+      pyramid2 = new Model(pyramidBase);
+      pyramid2.setLocation(vec3.fromValues(-3, 0, 0));
+      pyramid2.setRotation(Math.PI / 4);
+
+      const keys = new Keys();
+      const mouse = new Mouse(canvas);
+      const camera = new Camera();
+      camera.move(vec3.fromValues(0, 0, -6));
 
       const forward = vec3.fromValues(0, 0, 0.3);
       const backward = vec3.fromValues(0, 0, -0.3);
@@ -113,24 +181,24 @@
       const left = vec3.fromValues(-0.3, 0, 0);
 
       const draw = () => {
+        const keyStatus = keys.getState();
+        const turn = mouse.getRotation();
+        camera.changeDirection(mouse.getRotation());
+        
         if (keyStatus.KeyW) {
-          const direction = rotateVec3(forward, Math.PI / 500 * turn)
-          vec3.add(cameraLocation, cameraLocation, direction);
+          camera.move(forward);
         }
         if (keyStatus.KeyS) {
-          const direction = rotateVec3(backward, Math.PI / 500 * turn)
-          vec3.add(cameraLocation, cameraLocation, direction);
+          camera.move(backward);
         }
         if (keyStatus.KeyA) {
-          const direction = rotateVec3(right, Math.PI / 500 * turn)
-          vec3.add(cameraLocation, cameraLocation, direction);
+          camera.move(right);
         }
         if (keyStatus.KeyD) {
-          const direction = rotateVec3(left, Math.PI / 500 * turn)
-          vec3.add(cameraLocation, cameraLocation, direction);
+          camera.move(left);
         }
         
-        drawScene(gl, programInfo, buffers, cameraLocation, turn);
+        drawScene(gl, camera.getViewMatrix(), [pyramid, pyramid2]);
         requestAnimationFrame(draw)
       }
       
@@ -200,50 +268,19 @@
       return {
         position: positionBuffer,
         color: colorBuffer,
-        indices: indexBuffer
+        indices: indexBuffer,
+        vertexCount: 12
       };
     }
 
-    function drawScene(gl, programInfo, buffers, cameraLocation, turn) {
+    function drawScene(gl, viewMatrix, models) {
       clear(gl);
 
       const projectionMatrix = getProjectionMatrix(gl.canvas);
-      
-      const viewMatrix = mat4.create();
-      const up = vec3.fromValues(0, 1, 0);
-      const targetVector = vec3.create();
-      vec3.add(targetVector, cameraLocation, vec3.fromValues(0, 0, 1))
-      vec3.rotateY(targetVector, targetVector, cameraLocation, Math.PI / 500 * turn);
-      mat4.lookAt(viewMatrix, cameraLocation, targetVector, up);
+      const vpMatrix = mat4.create();
+      mat4.mul(vpMatrix, projectionMatrix, viewMatrix);
 
-      const modelViewMatrix = mat4.create();
-      mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, 0.0]);
-
-      const mvpMatrix = mat4.create();
-      mat4.mul(mvpMatrix, projectionMatrix, viewMatrix);
-
-      loadModelBuffer(gl, buffers, programInfo);
-      loadColorBuffer(gl, buffers, programInfo);
-
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
-
-      gl.useProgram(programInfo.program);
-
-      gl.uniformMatrix4fv(
-          programInfo.uniformLocations.projectionMatrix,
-          false,
-          mvpMatrix);
-      gl.uniformMatrix4fv(
-          programInfo.uniformLocations.modelViewMatrix,
-          false,
-          modelViewMatrix);
-
-      {
-        const vertexCount = 12;
-        const type = gl.UNSIGNED_SHORT;
-        const offset = 0;
-        gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
-      }
+      models.forEach(v => v.draw(vpMatrix));
     }
 
     function clear(gl) {
@@ -305,6 +342,45 @@
           offset);
       gl.enableVertexAttribArray(
           programInfo.attribLocations.vertexColor);
+    }
+
+    function createProgramInfo(gl) {
+      const vsSource = `
+        attribute vec4 aVertexPosition;
+        attribute vec4 aVertexColor;
+
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+
+        varying lowp vec4 vColor;
+
+        void main() {
+          gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+          vColor = aVertexColor;
+        }`;
+
+      const fsSource = `
+        varying lowp vec4 vColor;
+
+        void main() {
+          gl_FragColor = vColor;
+        }`;
+
+      const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+
+      const programInfo = {
+        program: shaderProgram,
+        attribLocations: {
+          vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+          vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
+        },
+        uniformLocations: {
+          projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+          modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
+        },
+      };
+
+      return programInfo;
     }
 
     function initShaderProgram(gl, vsSource, fsSource) {
