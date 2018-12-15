@@ -167,15 +167,21 @@
         return;
       }
 
-      const programInfo = createProgramInfo(gl)
-      const buffers = initBuffers(gl);
+      const programInfo = createProgramInfo(gl);
       
-      const pyramidBase = new ModelBase(gl, buffers, programInfo);
-      pyramid = new Model(pyramidBase);
-      pyramid2 = new Model(pyramidBase);
+      const pyramidData = getPyramidData();
+      const pyramidBuffers = initModelBuffers(gl, pyramidData);
+      const pyramidBase = new ModelBase(gl, pyramidBuffers, programInfo);
+      const pyramid = new Model(pyramidBase);
+      const pyramid2 = new Model(pyramidBase);
       pyramid2.setLocation(vec3.fromValues(-3, 0, 0));
       pyramid2.setRotation(Math.PI / 4);
       pyramid2.setScale(0.5);
+
+      const planeData = getPlaneData();
+      const planeBuffer = initModelBuffers(gl, planeData);
+      const planeBase = new ModelBase(gl, planeBuffer, programInfo);
+      const plane = new Model(planeBase);
 
       const keys = new Keys();
       const mouse = new Mouse(canvas);
@@ -205,7 +211,7 @@
           camera.move(left);
         }
         
-        drawScene(gl, camera.getViewMatrix(), [pyramid, pyramid2]);
+        drawScene(gl, camera.getViewMatrix(), [pyramid, pyramid2, plane]);
         requestAnimationFrame(draw)
       }
       
@@ -219,64 +225,87 @@
       return direction;
     }
 
-    function initBuffers(gl) {
-      const positions = [
-        0.0,  2.0, 0.0,
-        1.0,  0.0, -1.0,
-        -1.0, 0.0, -1.0,
-        
-        0.0,  2.0, 0.0,
-        -1.0, 0.0, -1.0,
-        -1.0, 0.0, 1.0,
-        
-        0.0,  2.0, 0.0,
-        -1.0, 0.0, 1.0,
-        1.0, 0.0, 1.0,
-        
-        0.0,  2.0, 0.0,
-        1.0, 0.0, 1.0,
-        1.0,  0.0, -1.0
-      ];
+    function getPlaneData() {
+      return {
+        positions: [
+          -100.0,  0.0, 100.0,
+          100.0,  0.0, 100.0,
+          100.0, 0.0, -100.0,
+          -100.0,  0.0, -100.0
+        ],
+        colors: [
+          1.0, 1.0, 1.0, 1.0,
+          1.0, 1.0, 1.0, 1.0,
+          1.0, 1.0, 1.0, 1.0,
+          1.0, 1.0, 1.0, 1.0
+        ],
+        indices: [
+          0, 1, 2,
+          0, 2, 3
+        ]
+      };
+    }
 
+    function getPyramidData() {
+      return {
+        positions: [
+          0.0,  2.0, 0.0,
+          1.0,  0.0, -1.0,
+          -1.0, 0.0, -1.0,
+          
+          0.0,  2.0, 0.0,
+          -1.0, 0.0, -1.0,
+          -1.0, 0.0, 1.0,
+          
+          0.0,  2.0, 0.0,
+          -1.0, 0.0, 1.0,
+          1.0, 0.0, 1.0,
+          
+          0.0,  2.0, 0.0,
+          1.0, 0.0, 1.0,
+          1.0,  0.0, -1.0
+        ],
+        colors: [
+          1.0, 0.0, 0.0, 1.0, 
+          1.0, 0.0, 0.0, 1.0, 
+          1.0, 0.0, 0.0, 1.0, 
+          0.0, 1.0, 0.0, 1.0, 
+          0.0, 1.0, 0.0, 1.0, 
+          0.0, 1.0, 0.0, 1.0, 
+          0.0, 0.0, 1.0, 1.0, 
+          0.0, 0.0, 1.0, 1.0, 
+          0.0, 0.0, 1.0, 1.0, 
+          0.0, 1.0, 1.0, 1.0, 
+          0.0, 1.0, 1.0, 1.0, 
+          0.0, 1.0, 1.0, 1.0
+        ],
+        indices: [
+          0, 1, 2,
+          3, 4, 5,
+          6, 7, 8,
+          9, 10, 11
+        ]
+      }
+    }
+
+    function initModelBuffers(gl, modelData) {
       const positionBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
-      const colors = [
-        1.0, 0.0, 0.0, 1.0, 
-        1.0, 0.0, 0.0, 1.0, 
-        1.0, 0.0, 0.0, 1.0, 
-        0.0, 1.0, 0.0, 1.0, 
-        0.0, 1.0, 0.0, 1.0, 
-        0.0, 1.0, 0.0, 1.0, 
-        0.0, 0.0, 1.0, 1.0, 
-        0.0, 0.0, 1.0, 1.0, 
-        0.0, 0.0, 1.0, 1.0, 
-        0.0, 1.0, 1.0, 1.0, 
-        0.0, 1.0, 1.0, 1.0, 
-        0.0, 1.0, 1.0, 1.0
-      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.positions), gl.STATIC_DRAW);
 
       const colorBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-
-      const indices = [
-        0, 1, 2,
-        3, 4, 5,
-        6, 7, 8,
-        9, 10, 11
-      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(modelData.colors), gl.STATIC_DRAW);
 
       const indexBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(modelData.indices), gl.STATIC_DRAW);
 
       return {
         position: positionBuffer,
         color: colorBuffer,
         indices: indexBuffer,
-        vertexCount: 12
+        vertexCount: modelData.indices.length
       };
     }
 
