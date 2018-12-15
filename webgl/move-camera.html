@@ -131,6 +131,7 @@
         this._modelBase = modelBase;
         this._location = vec3.create();
         this._rotation = 0;
+        this._scale = 1;
       }
 
       setLocation(location) {
@@ -141,9 +142,14 @@
         this._rotation = rotation;
       }
 
+      setScale(scale) {
+        this._scale = scale;
+      }
+
       draw(vpMatrix) {
         const modelMatrix = mat4.create();
         mat4.translate(modelMatrix, modelMatrix, this._location);
+        mat4.scale(modelMatrix, modelMatrix, vec3.fromValues(this._scale, this._scale, this._scale))
         mat4.rotate(modelMatrix, modelMatrix, this._rotation, vec3.fromValues(0, 1, 0));
         this._modelBase.draw(modelMatrix, vpMatrix);
       }
@@ -169,11 +175,12 @@
       pyramid2 = new Model(pyramidBase);
       pyramid2.setLocation(vec3.fromValues(-3, 0, 0));
       pyramid2.setRotation(Math.PI / 4);
+      pyramid2.setScale(0.5);
 
       const keys = new Keys();
       const mouse = new Mouse(canvas);
       const camera = new Camera();
-      camera.move(vec3.fromValues(0, 0, -6));
+      camera.move(vec3.fromValues(0, 1, -6));
 
       const forward = vec3.fromValues(0, 0, 0.3);
       const backward = vec3.fromValues(0, 0, -0.3);
@@ -214,21 +221,21 @@
 
     function initBuffers(gl) {
       const positions = [
-        0.0,  1.0, 0.0,
-        1.0,  -1.0, -1.0,
-        -1.0, -1.0, -1.0,
+        0.0,  2.0, 0.0,
+        1.0,  0.0, -1.0,
+        -1.0, 0.0, -1.0,
         
-        0.0,  1.0, 0.0,
-        -1.0, -1.0, -1.0,
-        -1.0, -1.0, 1.0,
+        0.0,  2.0, 0.0,
+        -1.0, 0.0, -1.0,
+        -1.0, 0.0, 1.0,
         
-        0.0,  1.0, 0.0,
-        -1.0, -1.0, 1.0,
-        1.0, -1.0, 1.0,
+        0.0,  2.0, 0.0,
+        -1.0, 0.0, 1.0,
+        1.0, 0.0, 1.0,
         
-        0.0,  1.0, 0.0,
-        1.0, -1.0, 1.0,
-        1.0,  -1.0, -1.0
+        0.0,  2.0, 0.0,
+        1.0, 0.0, 1.0,
+        1.0,  0.0, -1.0
       ];
 
       const positionBuffer = gl.createBuffer();
